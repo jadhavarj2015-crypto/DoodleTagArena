@@ -1,0 +1,1555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Doodle Tag Arena!</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Patrick Hand & Short Stack for doodle vibe -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&family=Short+Stack&display=swap" rel="stylesheet">
+  <!-- PeerJS CDN for Online P2P Multiplayer -->
+  <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+  <style>
+    body {
+      font-family: 'Patrick Hand', cursive, sans-serif;
+      background-color: #f6f3eb;
+      /* Grid notebook paper background pattern */
+      background-image: 
+        linear-gradient(rgba(100, 150, 200, 0.15) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(100, 150, 200, 0.15) 1px, transparent 1px);
+      background-size: 24px 24px;
+      user-select: none;
+      touch-action: manipulation;
+    }
+
+    /* Hand-drawn sketchy border effect styling */
+    .doodle-box {
+      border: 3px solid #2d3748;
+      border-radius: 255px 15px 225px 15px/15px 225px 15px 255px;
+      box-shadow: 4px 5px 0px #2d3748;
+      background: rgba(255, 255, 255, 0.95);
+    }
+
+    .doodle-btn {
+      border: 3px solid #2d3748;
+      border-radius: 255px 15px 225px 15px/15px 225px 15px 255px;
+      box-shadow: 3px 4px 0px #2d3748;
+      transition: all 0.1s ease-in-out;
+      font-family: 'Short Stack', cursive;
+    }
+
+    .doodle-btn:hover {
+      transform: translateY(-2px) scale(1.02);
+      box-shadow: 5px 6px 0px #2d3748;
+    }
+
+    .doodle-btn:active {
+      transform: translateY(2px) scale(0.98);
+      box-shadow: 1px 2px 0px #2d3748;
+    }
+
+    canvas {
+      border: 4px solid #2d3748;
+      border-radius: 12px;
+      box-shadow: 6px 8px 0px rgba(45, 55, 72, 0.8);
+      background: repeating-linear-gradient(
+        0deg,
+        #fbf9f3,
+        #fbf9f3 23px,
+        #e2e8f0 24px
+      );
+      touch-action: none;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-between p-2 sm:p-4 text-gray-800">
+
+  <!-- TOP HEADER -->
+  <header class="text-center my-2 max-w-4xl w-full flex flex-col sm:flex-row items-center justify-between px-4">
+    <div class="flex items-center space-x-2">
+      <span class="text-4xl animate-bounce">✏️</span>
+      <h1 class="text-3xl sm:text-5xl font-bold tracking-wide text-slate-800 drop-shadow">Doodle Tag Arena!</h1>
+    </div>
+    <div class="flex items-center space-x-2 mt-2 sm:mt-0">
+      <button id="soundToggleBtn" class="doodle-btn bg-yellow-200 px-3 py-1 text-sm font-semibold flex items-center gap-1">
+        <span id="soundIcon">🔊</span> <span id="soundText">Sound ON</span>
+      </button>
+      <button id="controlsBtn" class="doodle-btn bg-purple-200 px-3 py-1 text-sm font-semibold flex items-center gap-1">
+        🎮 Controls & Rules
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN CONTAINER -->
+  <main class="relative w-full max-w-5xl flex flex-col items-center">
+
+    <!-- START / MENU OVERLAY -->
+    <div id="menuOverlay" class="absolute inset-0 z-20 flex flex-col items-center justify-center bg-amber-50/95 backdrop-blur-sm p-4 rounded-xl overflow-y-auto max-h-[90vh]">
+      <div class="doodle-box p-5 max-w-2xl w-full text-center space-y-4">
+        <h2 class="text-3xl sm:text-4xl font-black text-slate-800 font-serif">4-Player Tag Arena! ✏️</h2>
+        <p class="text-sm sm:text-md text-slate-600">Tag your friends or AI bots! Customize player slots below for 1-4 local players.</p>
+
+        <!-- Player Slots Configuration (4 Players) -->
+        <div class="space-y-2 text-left">
+          <label class="block text-md font-bold text-slate-700 text-center">Player Slots Configuration:</label>
+
+          <!-- ONLINE PEERJS ROOM PANEL -->
+          <div class="p-3 border-2 border-purple-300 bg-purple-50 rounded-xl space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-purple-900 text-sm flex items-center gap-1">🌐 Online Multiplayer (PeerJS):</span>
+              <span id="networkStatusBadge" class="text-[10px] bg-gray-200 text-gray-700 font-mono font-bold px-2 py-0.5 rounded-full">Offline / Local</span>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+              <div class="flex items-center gap-2">
+                <button id="hostRoomBtn" class="doodle-btn bg-purple-300 hover:bg-purple-400 text-purple-950 font-bold px-3 py-1 text-xs w-full">
+                  👑 Create Room
+                </button>
+              </div>
+              <div class="flex items-center gap-1">
+                <input id="joinRoomCodeInput" type="text" placeholder="ROOM CODE" class="doodle-btn bg-white px-2 py-1 text-xs uppercase font-mono w-full text-center" maxlength="5">
+                <button id="joinRoomBtn" class="doodle-btn bg-emerald-300 hover:bg-emerald-400 text-emerald-950 font-bold px-3 py-1 text-xs whitespace-nowrap">
+                  🔗 Join
+                </button>
+              </div>
+            </div>
+            <div id="roomCodeDisplay" class="hidden text-center text-xs bg-purple-100 p-1.5 rounded-lg border border-purple-300">
+              <span class="text-purple-700 font-bold">Your Room Code: </span>
+              <span id="currentRoomCode" class="font-mono text-base font-black text-purple-900 underline select-all">-----</span>
+              <span class="text-[10px] text-purple-600 block">Share this code with friends on other computers!</span>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <!-- P1 Slot -->
+            <div class="p-2 border-2 border-rose-300 bg-rose-50 rounded-lg flex items-center justify-between">
+              <span class="font-bold text-rose-600">🔴 P1 (Red):</span>
+              <select id="p1Type" class="doodle-btn text-xs bg-white p-1">
+                <option value="human" selected>Human (WASD + Space)</option>
+                <option value="ai_easy">AI (Easy)</option>
+                <option value="ai_medium">AI (Medium)</option>
+                <option value="ai_hard">AI (Hard)</option>
+              </select>
+            </div>
+            <!-- P2 Slot -->
+            <div class="p-2 border-2 border-sky-300 bg-sky-50 rounded-lg flex items-center justify-between">
+              <span class="font-bold text-sky-600">🔵 P2 (Blue):</span>
+              <select id="p2Type" class="doodle-btn text-xs bg-white p-1">
+                <option value="human">Human (Arrows + Enter)</option>
+                <option value="ai_medium" selected>AI (Medium Bot)</option>
+                <option value="ai_easy">AI (Easy)</option>
+                <option value="ai_hard">AI (Hard)</option>
+                <option value="none">Disabled</option>
+              </select>
+            </div>
+            <!-- P3 Slot -->
+            <div class="p-2 border-2 border-emerald-300 bg-emerald-50 rounded-lg flex items-center justify-between">
+              <span class="font-bold text-emerald-600">🟢 P3 (Green):</span>
+              <select id="p3Type" class="doodle-btn text-xs bg-white p-1">
+                <option value="ai_medium">AI (Medium Bot)</option>
+                <option value="human">Human (IJKL + U)</option>
+                <option value="ai_easy">AI (Easy)</option>
+                <option value="ai_hard">AI (Hard)</option>
+                <option value="none" selected>Disabled</option>
+              </select>
+            </div>
+            <!-- P4 Slot -->
+            <div class="p-2 border-2 border-amber-300 bg-amber-50 rounded-lg flex items-center justify-between">
+              <span class="font-bold text-amber-600">🟡 P4 (Yellow):</span>
+              <select id="p4Type" class="doodle-btn text-xs bg-white p-1">
+                <option value="ai_medium">AI (Medium Bot)</option>
+                <option value="human">Human (TFGH + R)</option>
+                <option value="ai_easy">AI (Easy)</option>
+                <option value="ai_hard">AI (Hard)</option>
+                <option value="none" selected>Disabled</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- DRAW YOUR DOODLE BUTTONS -->
+        <div class="p-3 border-2 border-dashed border-indigo-300 bg-indigo-50/70 rounded-xl text-center space-y-2">
+          <label class="block text-sm font-bold text-indigo-900">🎨 Customize Player Doodles:</label>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div class="flex flex-col gap-1">
+              <button id="drawP1Btn" class="doodle-btn bg-rose-200 hover:bg-rose-300 text-rose-900 text-xs py-1.5 px-2 font-bold flex items-center justify-center gap-1">
+                ✏️ Draw P1
+              </button>
+              <button id="resetP1Btn" class="text-[10px] text-slate-500 hover:text-slate-800 underline">Use Original</button>
+            </div>
+            <div class="flex flex-col gap-1">
+              <button id="drawP2Btn" class="doodle-btn bg-sky-200 hover:bg-sky-300 text-sky-900 text-xs py-1.5 px-2 font-bold flex items-center justify-center gap-1">
+                ✏️ Draw P2
+              </button>
+              <button id="resetP2Btn" class="text-[10px] text-slate-500 hover:text-slate-800 underline">Use Original</button>
+            </div>
+            <div class="flex flex-col gap-1">
+              <button id="drawP3Btn" class="doodle-btn bg-emerald-200 hover:bg-emerald-300 text-emerald-900 text-xs py-1.5 px-2 font-bold flex items-center justify-center gap-1">
+                ✏️ Draw P3
+              </button>
+              <button id="resetP3Btn" class="text-[10px] text-slate-500 hover:text-slate-800 underline">Use Original</button>
+            </div>
+            <div class="flex flex-col gap-1">
+              <button id="drawP4Btn" class="doodle-btn bg-amber-200 hover:bg-amber-300 text-amber-900 text-xs py-1.5 px-2 font-bold flex items-center justify-center gap-1">
+                ✏️ Draw P4
+              </button>
+              <button id="resetP4Btn" class="text-[10px] text-slate-500 hover:text-slate-800 underline">Use Original</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Match Time Selection -->
+        <div class="text-center">
+          <label class="block text-xs font-bold text-slate-700 mb-1">Match Duration:</label>
+          <select id="matchTimeSelect" class="doodle-btn bg-white px-4 py-1 text-sm font-semibold cursor-pointer max-w-xs mx-auto">
+            <option value="45">45 Seconds</option>
+            <option value="60" selected>60 Seconds</option>
+            <option value="90">90 Seconds</option>
+          </select>
+        </div>
+
+        <button id="openMapSelectBtn" class="doodle-btn bg-rose-400 hover:bg-rose-500 text-white text-2xl font-black py-2.5 px-8 rounded-full shadow-lg transform hover:scale-105 transition w-full">
+          🚀 CHOOSE MAP & PLAY!
+        </button>
+      </div>
+    </div>
+
+    <!-- MAP SELECTION MODAL -->
+    <div id="mapSelectModal" class="hidden absolute inset-0 z-30 flex flex-col items-center justify-center bg-amber-50/95 backdrop-blur-md p-4 rounded-xl overflow-y-auto">
+      <div class="doodle-box p-5 max-w-3xl w-full text-center space-y-3">
+        <h2 class="text-3xl font-black text-slate-800 font-serif">🗺️ Pick Your Arena Map!</h2>
+        <p class="text-xs sm:text-sm text-slate-600">Preview and select an arena layout for the upcoming battle:</p>
+
+        <!-- 6 Map Cards Grid with Live Canvas Previews -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 text-left">
+          <div class="map-card doodle-btn p-2 bg-white cursor-pointer hover:border-rose-400 border-2 transition rounded-xl flex flex-col justify-between" data-map="classic">
+            <div>
+              <div class="font-bold text-slate-800 text-xs sm:text-sm flex justify-between items-center">
+                <span>📒 Classic Grid</span>
+                <span class="text-[10px] text-slate-400 font-normal">Standard</span>
+              </div>
+              <div class="w-full h-24 my-1 bg-slate-100 rounded border border-slate-300 flex items-center justify-center overflow-hidden">
+                <canvas id="preview-classic" width="220" height="130" class="w-full h-full object-contain pointer-events-none border-0 shadow-none"></canvas>
+              </div>
+            </div>
+            <span class="text-xs font-bold text-rose-500 text-right">Select ➔</span>
+          </div>
+
+          <div class="map-card doodle-btn p-2 bg-white cursor-pointer hover:border-rose-400 border-2 transition rounded-xl flex flex-col justify-between" data-map="bouncy">
+            <div>
+              <div class="font-bold text-slate-800 text-xs sm:text-sm flex justify-between items-center">
+                <span>🏀 Bounce Pads</span>
+                <span class="text-[10px] text-slate-400 font-normal">Standard</span>
+              </div>
+              <div class="w-full h-24 my-1 bg-slate-100 rounded border border-slate-300 flex items-center justify-center overflow-hidden">
+                <canvas id="preview-bouncy" width="220" height="130" class="w-full h-full object-contain pointer-events-none border-0 shadow-none"></canvas>
+              </div>
+            </div>
+            <span class="text-xs font-bold text-rose-500 text-right">Select ➔</span>
+          </div>
+
+          <div class="map-card doodle-btn p-2 bg-white cursor-pointer hover:border-rose-400 border-2 transition rounded-xl flex flex-col justify-between" data-map="portals">
+            <div>
+              <div class="font-bold text-slate-800 text-xs sm:text-sm flex justify-between items-center">
+                <span>🌀 Portal Chaos</span>
+                <span class="text-[10px] text-slate-400 font-normal">Standard</span>
+              </div>
+              <div class="w-full h-24 my-1 bg-slate-100 rounded border border-slate-300 flex items-center justify-center overflow-hidden">
+                <canvas id="preview-portals" width="220" height="130" class="w-full h-full object-contain pointer-events-none border-0 shadow-none"></canvas>
+              </div>
+            </div>
+            <span class="text-xs font-bold text-rose-500 text-right">Select ➔</span>
+          </div>
+
+          <div class="map-card doodle-btn p-2 bg-white cursor-pointer hover:border-rose-400 border-2 transition rounded-xl flex flex-col justify-between" data-map="castle">
+            <div>
+              <div class="font-bold text-slate-800 text-xs sm:text-sm flex justify-between items-center">
+                <span>🏰 Mega Castle</span>
+                <span class="text-[10px] text-amber-600 font-bold bg-amber-100 px-1 rounded">BIG MAP</span>
+              </div>
+              <div class="w-full h-24 my-1 bg-slate-100 rounded border border-slate-300 flex items-center justify-center overflow-hidden">
+                <canvas id="preview-castle" width="220" height="130" class="w-full h-full object-contain pointer-events-none border-0 shadow-none"></canvas>
+              </div>
+            </div>
+            <span class="text-xs font-bold text-rose-500 text-right">Select ➔</span>
+          </div>
+
+          <div class="map-card doodle-btn p-2 bg-white cursor-pointer hover:border-rose-400 border-2 transition rounded-xl flex flex-col justify-between" data-map="lava">
+            <div>
+              <div class="font-bold text-slate-800 text-xs sm:text-sm flex justify-between items-center">
+                <span>🌋 Big Lava Arena</span>
+                <span class="text-[10px] text-amber-600 font-bold bg-amber-100 px-1 rounded">BIG MAP</span>
+              </div>
+              <div class="w-full h-24 my-1 bg-slate-100 rounded border border-slate-300 flex items-center justify-center overflow-hidden">
+                <canvas id="preview-lava" width="220" height="130" class="w-full h-full object-contain pointer-events-none border-0 shadow-none"></canvas>
+              </div>
+            </div>
+            <span class="text-xs font-bold text-rose-500 text-right">Select ➔</span>
+          </div>
+
+          <div class="map-card doodle-btn p-2 bg-white cursor-pointer hover:border-rose-400 border-2 transition rounded-xl flex flex-col justify-between" data-map="islands">
+            <div>
+              <div class="font-bold text-slate-800 text-xs sm:text-sm flex justify-between items-center">
+                <span>☁️ Sky Islands</span>
+                <span class="text-[10px] text-amber-600 font-bold bg-amber-100 px-1 rounded">BIG MAP</span>
+              </div>
+              <div class="w-full h-24 my-1 bg-slate-100 rounded border border-slate-300 flex items-center justify-center overflow-hidden">
+                <canvas id="preview-islands" width="220" height="130" class="w-full h-full object-contain pointer-events-none border-0 shadow-none"></canvas>
+              </div>
+            </div>
+            <span class="text-xs font-bold text-rose-500 text-right">Select ➔</span>
+          </div>
+        </div>
+
+        <button id="cancelMapSelectBtn" class="doodle-btn bg-slate-200 hover:bg-slate-300 text-slate-700 text-sm font-bold py-1.5 px-6">
+          ⬅ Back to Player Setup
+        </button>
+      </div>
+    </div>
+
+    <!-- GAMEPLAY HUD & 4-PLAYER SCOREBOARD -->
+    <div id="hud" class="w-full max-w-4xl grid grid-cols-5 items-center gap-1 mb-2 px-3 py-2 doodle-box bg-white/90 text-xs sm:text-sm">
+      <!-- Player Cards -->
+      <div id="p1Card" class="flex flex-col items-center border-r border-dashed border-gray-300">
+        <span class="font-bold text-rose-600" id="p1Name">🔴 P1</span>
+        <span id="p1Status" class="text-[11px] font-mono text-slate-500">0s</span>
+      </div>
+      <div id="p2Card" class="flex flex-col items-center border-r border-dashed border-gray-300">
+        <span class="font-bold text-sky-600" id="p2Name">🔵 P2</span>
+        <span id="p2Status" class="text-[11px] font-mono text-slate-500">0s</span>
+      </div>
+      <div class="text-center">
+        <div class="text-[10px] font-bold text-gray-500 uppercase">Time Left</div>
+        <div id="timerDisplay" class="text-2xl sm:text-3xl font-black text-slate-800 font-mono leading-none">60</div>
+      </div>
+      <div id="p3Card" class="flex flex-col items-center border-l border-dashed border-gray-300">
+        <span class="font-bold text-emerald-600" id="p3Name">🟢 P3</span>
+        <span id="p3Status" class="text-[11px] font-mono text-slate-500">0s</span>
+      </div>
+      <div id="p4Card" class="flex flex-col items-center border-l border-dashed border-gray-300">
+        <span class="font-bold text-amber-600" id="p4Name">🟡 P4</span>
+        <span id="p4Status" class="text-[11px] font-mono text-slate-500">0s</span>
+      </div>
+    </div>
+
+    <!-- GAME CANVAS -->
+    <div class="relative w-full flex justify-center">
+      <canvas id="gameCanvas" width="900" height="500" class="w-full h-auto max-w-4xl max-h-[500px]"></canvas>
+
+      <!-- PAUSE OVERLAY -->
+      <div id="pauseOverlay" class="hidden absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-900/40 backdrop-blur-xs rounded-xl">
+        <div class="doodle-box p-6 bg-white text-center space-y-4">
+          <h3 class="text-3xl font-bold text-slate-800">Game Paused ⏸️</h3>
+          <p class="text-slate-600">Press 'P' to resume or view controls.</p>
+          <div class="flex space-x-3 justify-center">
+            <button id="resumeBtn" class="doodle-btn bg-emerald-400 px-5 py-2 text-lg font-bold text-white">Resume</button>
+            <button id="pauseControlsBtn" class="doodle-btn bg-purple-300 px-5 py-2 text-lg font-bold text-slate-800">Controls</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TOUCH CONTROLS (Mobile) -->
+    <div id="mobileControls" class="w-full max-w-4xl mt-3 grid grid-cols-2 gap-4 hidden">
+      <div class="flex justify-between items-center bg-rose-50 p-2 rounded-xl border-2 border-rose-200">
+        <div class="flex space-x-1">
+          <button id="btnLeft" class="doodle-btn bg-white w-12 h-12 text-xl font-bold">◄</button>
+          <button id="btnRight" class="doodle-btn bg-white w-12 h-12 text-xl font-bold">►</button>
+        </div>
+        <div class="flex space-x-1">
+          <button id="btnJump" class="doodle-btn bg-rose-300 w-12 h-12 text-sm font-bold">JUMP</button>
+          <button id="btnDash" class="doodle-btn bg-amber-300 w-12 h-12 text-xs font-bold">DASH</button>
+        </div>
+      </div>
+      <div class="flex items-center justify-center text-center text-xs font-bold text-slate-500 bg-sky-50 p-2 rounded-xl border-2 border-sky-200">
+        <span>Touch controls active for Player 1. Connect keyboards for multi-player action!</span>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- FULL CONTROLS & HOW TO PLAY MODAL -->
+  <div id="helpModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
+    <div class="doodle-box p-6 max-w-2xl w-full bg-white space-y-4 relative max-h-[90vh] overflow-y-auto">
+      <button id="closeHelpBtn" class="absolute top-3 right-3 text-2xl font-black text-gray-500 hover:text-red-500">✖</button>
+      <h3 class="text-2xl font-bold text-slate-800 text-center border-b-2 border-slate-200 pb-2">🎮 Controls & Arena Guide</h3>
+      
+      <!-- Controls Breakdown Table -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+        <div class="p-3 bg-rose-50 border-2 border-rose-200 rounded-lg">
+          <h4 class="font-bold text-rose-600 text-sm mb-1">🔴 Player 1 (Red)</h4>
+          <p><b>Move Left/Right:</b> <kbd class="px-1 bg-white border rounded">A</kbd> / <kbd class="px-1 bg-white border rounded">D</kbd></p>
+          <p><b>Jump / Dbl Jump:</b> <kbd class="px-1 bg-white border rounded">W</kbd></p>
+          <p><b>Dash Boost:</b> <kbd class="px-1 bg-white border rounded">Spacebar</kbd></p>
+        </div>
+        <div class="p-3 bg-sky-50 border-2 border-sky-200 rounded-lg">
+          <h4 class="font-bold text-sky-600 text-sm mb-1">🔵 Player 2 (Blue)</h4>
+          <p><b>Move Left/Right:</b> <kbd class="px-1 bg-white border rounded">◄</kbd> / <kbd class="px-1 bg-white border rounded">►</kbd></p>
+          <p><b>Jump / Dbl Jump:</b> <kbd class="px-1 bg-white border rounded">▲</kbd></p>
+          <p><b>Dash Boost:</b> <kbd class="px-1 bg-white border rounded">Enter / Num 0</kbd></p>
+        </div>
+        <div class="p-3 bg-emerald-50 border-2 border-emerald-200 rounded-lg">
+          <h4 class="font-bold text-emerald-600 text-sm mb-1">🟢 Player 3 (Green)</h4>
+          <p><b>Move Left/Right:</b> <kbd class="px-1 bg-white border rounded">J</kbd> / <kbd class="px-1 bg-white border rounded">L</kbd></p>
+          <p><b>Jump / Dbl Jump:</b> <kbd class="px-1 bg-white border rounded">I</kbd></p>
+          <p><b>Dash Boost:</b> <kbd class="px-1 bg-white border rounded">U</kbd></p>
+        </div>
+        <div class="p-3 bg-amber-50 border-2 border-amber-200 rounded-lg">
+          <h4 class="font-bold text-amber-600 text-sm mb-1">🟡 Player 4 (Yellow)</h4>
+          <p><b>Move Left/Right:</b> <kbd class="px-1 bg-white border rounded">F</kbd> / <kbd class="px-1 bg-white border rounded">H</kbd></p>
+          <p><b>Jump / Dbl Jump:</b> <kbd class="px-1 bg-white border rounded">T</kbd></p>
+          <p><b>Dash Boost:</b> <kbd class="px-1 bg-white border rounded">R</kbd></p>
+        </div>
+      </div>
+
+      <hr class="border-dashed border-gray-300">
+
+      <!-- Gameplay Rules & Items -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-slate-700">
+        <div>
+          <h4 class="font-bold text-purple-600 text-sm mb-1">👑 Tag Rules:</h4>
+          <p>• The player glowing red with the 👑 crown is <b>IT</b>!</p>
+          <p>• Bump into another doodle to tag them.</p>
+          <p>• The player with the <b>LOWEST total IT time</b> when time runs out wins!</p>
+        </div>
+        <div>
+          <h4 class="font-bold text-purple-600 text-sm mb-1">🌀 Arena Hazards & Pickups:</h4>
+          <p>• ⚡ <b>Speed Pickup:</b> Grants temporary speed sprint.</p>
+          <p>• 🛡️ <b>Shield Pickup:</b> Prevents being tagged for 4s.</p>
+          <p>• 🏀 <b>Bounce Pads:</b> Launch you into high platform jumps.</p>
+          <p>• 🌀 <b>Portals:</b> Instantly warp across the canvas map.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- GAME OVER MODAL -->
+  <div id="gameOverModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
+    <div class="doodle-box p-6 max-w-lg w-full bg-white text-center space-y-5">
+      <h2 id="winnerText" class="text-3xl font-black text-rose-600 animate-bounce">🎉 Player 1 Wins! 🎉</h2>
+      <div id="finalStats" class="bg-amber-50 p-4 rounded-xl border-2 border-dashed border-amber-300 text-left space-y-1 font-mono text-xs">
+        <!-- Filled dynamically -->
+      </div>
+      <div class="flex justify-center space-x-4">
+        <button id="rematchBtn" class="doodle-btn bg-emerald-400 hover:bg-emerald-500 text-white font-bold py-2 px-5 text-base">
+          🔄 Play Again
+        </button>
+        <button id="backMenuBtn" class="doodle-btn bg-slate-300 hover:bg-slate-400 text-slate-800 font-bold py-2 px-5 text-base">
+          🏠 Main Menu
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CHARACTER DRAWING STUDIO MODAL -->
+  <div id="drawStudioModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
+    <div class="doodle-box p-5 max-w-md w-full bg-white space-y-3 relative text-center">
+      <button id="closeDrawStudioBtn" class="absolute top-3 right-3 text-2xl font-black text-gray-500 hover:text-red-500">✖</button>
+      <h3 id="drawStudioTitle" class="text-2xl font-bold text-slate-800">✏️ Draw Your Doodle: P1</h3>
+      <p class="text-xs text-slate-500">Sketch your custom player inside the notebook box below!</p>
+      
+      <!-- Studio Canvas -->
+      <div class="flex justify-center my-2">
+        <canvas id="studioCanvas" width="160" height="190" class="border-2 border-dashed border-slate-400 rounded-lg bg-white cursor-crosshair shadow-inner"></canvas>
+      </div>
+
+      <!-- Colors & Brush Tools -->
+      <div class="flex flex-wrap items-center justify-center gap-1.5">
+        <button class="color-swatch w-7 h-7 rounded-full border-2 border-slate-700 bg-slate-800 focus:scale-110" data-color="#1e293b"></button>
+        <button class="color-swatch w-7 h-7 rounded-full border-2 border-slate-300 bg-rose-500 focus:scale-110" data-color="#f43f5e"></button>
+        <button class="color-swatch w-7 h-7 rounded-full border-2 border-slate-300 bg-sky-500 focus:scale-110" data-color="#0284c7"></button>
+        <button class="color-swatch w-7 h-7 rounded-full border-2 border-slate-300 bg-emerald-500 focus:scale-110" data-color="#10b981"></button>
+        <button class="color-swatch w-7 h-7 rounded-full border-2 border-slate-300 bg-amber-500 focus:scale-110" data-color="#f59e0b"></button>
+        <button class="color-swatch w-7 h-7 rounded-full border-2 border-slate-300 bg-purple-500 focus:scale-110" data-color="#a855f7"></button>
+        <button class="color-swatch w-7 h-7 rounded-full border-2 border-slate-300 bg-pink-400 focus:scale-110" data-color="#ec4899"></button>
+        <button class="color-swatch w-7 h-7 rounded-full border-2 border-slate-300 bg-white text-xs flex items-center justify-center font-bold" data-color="eraser">🧹</button>
+      </div>
+
+      <div class="flex items-center justify-center gap-3 text-xs font-bold text-slate-700 pt-1">
+        <span>Size:</span>
+        <button id="sizeThinBtn" class="doodle-btn px-2 py-0.5 bg-slate-100">Thin</button>
+        <button id="sizeMidBtn" class="doodle-btn px-2 py-0.5 bg-slate-300">Mid</button>
+        <button id="sizeThickBtn" class="doodle-btn px-2 py-0.5 bg-slate-100">Thick</button>
+      </div>
+
+      <div class="flex justify-between items-center pt-2 border-t border-slate-200">
+        <button id="clearStudioBtn" class="doodle-btn bg-red-100 hover:bg-red-200 text-red-700 px-3 py-1 text-xs font-bold">Clear Canvas</button>
+        <button id="resetStudioBtn" class="doodle-btn bg-amber-100 hover:bg-amber-200 text-amber-800 px-3 py-1 text-xs font-bold">Use Original Character</button>
+        <button id="saveStudioBtn" class="doodle-btn bg-emerald-400 hover:bg-emerald-500 text-white px-4 py-1 text-xs font-bold">Save Doodle</button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="text-center text-xs text-slate-500 py-2">
+    Hand-drawn Doodle Tag Game • Single Computer Local Co-Op & Single Player
+  </footer>
+
+  <script>
+    // --- Web Audio API Synthesizer ---
+    class SoundSynth {
+      constructor() {
+        this.ctx = null;
+        this.enabled = true;
+      }
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if (AudioContext) this.ctx = new AudioContext();
+        }
+      }
+      playJump() {
+        if (!this.enabled || !this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(160, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(450, this.ctx.currentTime + 0.15);
+        gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.15);
+      }
+      playBounce() {
+        if (!this.enabled || !this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(200, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(600, this.ctx.currentTime + 0.2);
+        gain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.2);
+      }
+      playTag() {
+        if (!this.enabled || !this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(500, this.ctx.currentTime);
+        osc.frequency.linearRampToValueAtTime(200, this.ctx.currentTime + 0.25);
+        gain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.25);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.25);
+      }
+      playPowerup() {
+        if (!this.enabled || !this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(300, now);
+        osc.frequency.setValueAtTime(450, now + 0.08);
+        osc.frequency.setValueAtTime(600, now + 0.16);
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.linearRampToValueAtTime(0.01, now + 0.25);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(now + 0.25);
+      }
+      playDash() {
+        if (!this.enabled || !this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(120, this.ctx.currentTime);
+        osc.frequency.linearRampToValueAtTime(40, this.ctx.currentTime + 0.1);
+        gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.1);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.1);
+      }
+      playWin() {
+        if (!this.enabled || !this.ctx) return;
+        const notes = [261.6, 329.6, 392, 523.25];
+        notes.forEach((freq, i) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.value = freq;
+          gain.gain.setValueAtTime(0.3, this.ctx.currentTime + i * 0.1);
+          gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + i * 0.1 + 0.2);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(this.ctx.currentTime + i * 0.1);
+          osc.stop(this.ctx.currentTime + i * 0.1 + 0.2);
+        });
+      }
+    }
+
+    const sound = new SoundSynth();
+
+    // Canvas Setup
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // DOM Elements
+    const menuOverlay = document.getElementById('menuOverlay');
+    const pauseOverlay = document.getElementById('pauseOverlay');
+    const helpModal = document.getElementById('helpModal');
+    const gameOverModal = document.getElementById('gameOverModal');
+    const soundToggleBtn = document.getElementById('soundToggleBtn');
+    const soundIcon = document.getElementById('soundIcon');
+    const soundText = document.getElementById('soundText');
+
+    // Game State
+    let selectedMap = 'classic';
+    let isPaused = false;
+    let gameActive = false;
+    let matchTime = 60;
+    let matchTimerInterval = null;
+
+    let players = [];
+    let platforms = [];
+    let bouncePads = [];
+    let portals = [];
+    let powerups = [];
+    let particles = [];
+    let tagCooldown = 0;
+
+    const customSkins = { p1: null, p2: null, p3: null, p4: null };
+
+    // --- DOODLE PLAYER CLASS ---
+    class DoodlePlayer {
+      constructor(id, label, color, type, x, y) {
+        this.id = id;
+        this.label = label;
+        this.color = color;
+        this.type = type; // 'human', 'ai_easy', 'ai_medium', 'ai_hard'
+        this.x = x;
+        this.y = y;
+        this.width = 34;
+        this.height = 42;
+        this.vx = 0;
+        this.vy = 0;
+        this.speed = 4.5;
+        this.jumpForce = 11.5;
+        this.isGrounded = false;
+        this.doubleJumps = 1;
+        this.isIT = false;
+        this.itTime = 0;
+        this.facing = 'right';
+        this.dashCooldown = 0;
+        this.speedTimer = 0;
+        this.shieldTimer = 0;
+        this.portalCooldown = 0;
+      }
+
+      update() {
+        // Timers
+        if (this.isIT && gameActive && !isPaused) this.itTime += 1 / 60;
+        if (this.dashCooldown > 0) this.dashCooldown--;
+        if (this.speedTimer > 0) this.speedTimer--;
+        if (this.shieldTimer > 0) this.shieldTimer--;
+        if (this.portalCooldown > 0) this.portalCooldown--;
+
+        const curSpeed = this.speedTimer > 0 ? this.speed * 1.45 : this.speed;
+
+        if (this.type === 'human') {
+          this.handleHumanControls(curSpeed);
+        } else if (this.type.startsWith('ai')) {
+          this.handleAI(curSpeed);
+        }
+
+        // Apply Gravity
+        this.vy += 0.5;
+
+        // X Movement & Platform Collision
+        this.x += this.vx;
+        this.handleXBoundaries();
+
+        // Y Movement & Platform Collision
+        this.y += this.vy;
+        this.handleYBoundaries();
+
+        // Facing direction
+        if (this.vx > 0.3) this.facing = 'right';
+        if (this.vx < -0.3) this.facing = 'left';
+
+        // Friction
+        this.vx *= 0.82;
+      }
+
+      handleHumanControls(curSpeed) {
+        // P1: WASD + Space
+        if (this.id === 1) {
+          if (keys['KeyA']) this.vx = -curSpeed;
+          if (keys['KeyD']) this.vx = curSpeed;
+          if (keys['KeyW'] && this.canJump) { this.jump(); keys['KeyW'] = false; }
+          if (keys['Space'] && this.dashCooldown <= 0) { this.dash(); keys['Space'] = false; }
+        }
+        // P2: Arrows + Enter
+        else if (this.id === 2) {
+          if (keys['ArrowLeft']) this.vx = -curSpeed;
+          if (keys['ArrowRight']) this.vx = curSpeed;
+          if (keys['ArrowUp'] && this.canJump) { this.jump(); keys['ArrowUp'] = false; }
+          if ((keys['Enter'] || keys['Numpad0']) && this.dashCooldown <= 0) { this.dash(); keys['Enter'] = false; }
+        }
+        // P3: IJKL + U
+        else if (this.id === 3) {
+          if (keys['KeyJ']) this.vx = -curSpeed;
+          if (keys['KeyL']) this.vx = curSpeed;
+          if (keys['KeyI'] && this.canJump) { this.jump(); keys['KeyI'] = false; }
+          if (keys['KeyU'] && this.dashCooldown <= 0) { this.dash(); keys['KeyU'] = false; }
+        }
+        // P4: TFGH + R
+        else if (this.id === 4) {
+          if (keys['KeyF']) this.vx = -curSpeed;
+          if (keys['KeyH']) this.vx = curSpeed;
+          if (keys['KeyT'] && this.canJump) { this.jump(); keys['KeyT'] = false; }
+          if (keys['KeyR'] && this.dashCooldown <= 0) { this.dash(); keys['KeyR'] = false; }
+        }
+      }
+
+      handleAI(curSpeed) {
+        const itPlayer = players.find(p => p.isIT);
+        if (!itPlayer) return;
+
+        let target = null;
+        if (this.isIT) {
+          // Pursue closest non-IT player without shield
+          let minD = Infinity;
+          players.forEach(p => {
+            if (p !== this && p.shieldTimer <= 0) {
+              const d = Math.hypot(p.x - this.x, p.y - this.y);
+              if (d < minD) { minD = d; target = p; }
+            }
+          });
+        } else {
+          // Flee from IT player
+          target = itPlayer;
+        }
+
+        if (target) {
+          const dx = target.x - this.x;
+          if (this.isIT) {
+            if (dx > 10) this.vx = curSpeed * 0.85;
+            else if (dx < -10) this.vx = -curSpeed * 0.85;
+          } else {
+            // Run away
+            if (dx > 0) this.vx = -curSpeed * 0.85;
+            else this.vx = curSpeed * 0.85;
+          }
+
+          // Jump logic for obstacles/height differences
+          if (this.isGrounded && Math.random() < 0.04) {
+            if (target.y < this.y - 30 || Math.abs(dx) < 40) this.jump();
+          }
+        }
+      }
+
+      get canJump() {
+        return this.isGrounded || this.doubleJumps > 0;
+      }
+
+      jump() {
+        if (this.isGrounded) {
+          this.vy = -this.jumpForce;
+          this.isGrounded = false;
+          sound.playJump();
+        } else if (this.doubleJumps > 0) {
+          this.vy = -this.jumpForce * 0.9;
+          this.doubleJumps--;
+          sound.playJump();
+          createDust(this.x + this.width / 2, this.y + this.height);
+        }
+      }
+
+      dash() {
+        this.vx += (this.facing === 'right' ? 1 : -1) * 12;
+        this.dashCooldown = 60;
+        sound.playDash();
+        createDust(this.x + this.width / 2, this.y + this.height / 2);
+      }
+
+      handleXBoundaries() {
+        if (this.x < 0) { this.x = 0; this.vx = 0; }
+        if (this.x + this.width > canvas.width) { this.x = canvas.width - this.width; this.vx = 0; }
+      }
+
+      handleYBoundaries() {
+        this.isGrounded = false;
+
+        platforms.forEach(p => {
+          if (
+            this.x + this.width > p.x &&
+            this.x < p.x + p.w &&
+            this.y + this.height >= p.y &&
+            this.y + this.height - this.vy <= p.y + 14 &&
+            this.vy >= 0
+          ) {
+            this.y = p.y - this.height;
+            this.vy = 0;
+            this.isGrounded = true;
+            this.doubleJumps = 1;
+          }
+        });
+
+        if (this.y + this.height >= canvas.height - 10) {
+          this.y = canvas.height - 10 - this.height;
+          this.vy = 0;
+          this.isGrounded = true;
+          this.doubleJumps = 1;
+        }
+      }
+
+      draw() {
+        ctx.save();
+
+        // Pulsing Red Glow when IT
+        if (this.isIT) {
+          ctx.shadowColor = '#ef4444';
+          ctx.shadowBlur = 18 + Math.sin(Date.now() * 0.01) * 8;
+        }
+
+        const skinKey = `p${this.id}`;
+        if (customSkins[skinKey]) {
+          // Render Custom Artwork Skin
+          ctx.drawImage(customSkins[skinKey], this.x, this.y, this.width, this.height);
+        } else {
+          // Default Hand-Drawn Doodle Body
+          ctx.fillStyle = this.color;
+          ctx.strokeStyle = this.isIT ? '#b91c1c' : '#1e293b';
+          ctx.lineWidth = this.isIT ? 4 : 2.5;
+
+          // Body Oval
+          ctx.beginPath();
+          ctx.ellipse(this.x + this.width / 2, this.y + this.height / 2, this.width / 2, this.height / 2, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+
+          // Eyes
+          ctx.fillStyle = '#ffffff';
+          const eyeOffset = this.facing === 'right' ? 4 : -4;
+          ctx.beginPath();
+          ctx.arc(this.x + this.width / 2 + eyeOffset - 4, this.y + 14, 4, 0, Math.PI * 2);
+          ctx.arc(this.x + this.width / 2 + eyeOffset + 4, this.y + 14, 4, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#000000';
+          ctx.beginPath();
+          ctx.arc(this.x + this.width / 2 + eyeOffset - 4, this.y + 14, 2, 0, Math.PI * 2);
+          ctx.arc(this.x + this.width / 2 + eyeOffset + 4, this.y + 14, 2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // Crown on "IT" Player
+        if (this.isIT) {
+          ctx.fillStyle = '#f59e0b';
+          ctx.strokeStyle = '#b45309';
+          ctx.lineWidth = 2;
+          const cx = this.x + this.width / 2;
+          const cy = this.y - 12;
+          ctx.beginPath();
+          ctx.moveTo(cx - 12, cy + 8);
+          ctx.lineTo(cx - 14, cy - 6);
+          ctx.lineTo(cx - 6, cy);
+          ctx.lineTo(cx, cy - 10);
+          ctx.lineTo(cx + 6, cy);
+          ctx.lineTo(cx + 14, cy - 6);
+          ctx.lineTo(cx + 12, cy + 8);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+        }
+
+        // Shield aura indicator
+        if (this.shieldTimer > 0) {
+          ctx.strokeStyle = '#3b82f6';
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.arc(this.x + this.width / 2, this.y + this.height / 2, 24, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+
+        ctx.restore();
+      }
+    }
+
+    // --- PEER JS ONLINE MULTIPLAYER ENGINE ---
+    let peer = null;
+    let myPeerId = null;
+    let roomCode = null;
+    let isHost = false;
+    let myNetSlot = 'p1';
+    const connections = [];
+    let hostConn = null;
+
+    function generateRoomCode() {
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      let code = '';
+      for (let i = 0; i < 5; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
+      return code;
+    }
+
+    function initPeerNet() {
+      if (peer) return;
+      peer = new Peer();
+
+      peer.on('open', (id) => {
+        myPeerId = id;
+        document.getElementById('networkStatusBadge').textContent = 'Ready (PeerJS)';
+        document.getElementById('networkStatusBadge').className = 'text-[10px] bg-emerald-200 text-emerald-800 font-mono font-bold px-2 py-0.5 rounded-full';
+      });
+
+      peer.on('connection', (conn) => {
+        if (!isHost) return;
+        connections.push(conn);
+        
+        let assignedSlot = null;
+        const slots = ['p2', 'p3', 'p4'];
+        for (let s of slots) {
+          const select = document.getElementById(`${s}Type`);
+          if (select && select.value !== 'human') {
+            assignedSlot = s;
+            select.value = 'human';
+            break;
+          }
+        }
+
+        conn.on('open', () => {
+          conn.send({
+            type: 'WELCOME',
+            assignedSlot: assignedSlot || 'p2',
+            selectedMap: selectedMap,
+            matchTime: matchTime
+          });
+          broadcastRoomState();
+        });
+
+        conn.on('data', (data) => {
+          handleIncomingNetData(data, conn);
+        });
+
+        conn.on('close', () => {
+          const idx = connections.indexOf(conn);
+          if (idx !== -1) connections.splice(idx, 1);
+        });
+      });
+
+      peer.on('error', (err) => {
+        console.warn('PeerJS Error:', err);
+        document.getElementById('networkStatusBadge').textContent = 'Net Error';
+        document.getElementById('networkStatusBadge').className = 'text-[10px] bg-red-200 text-red-800 font-mono font-bold px-2 py-0.5 rounded-full';
+      });
+    }
+
+    document.getElementById('hostRoomBtn').addEventListener('click', () => {
+      initPeerNet();
+      isHost = true;
+      myNetSlot = 'p1';
+      roomCode = generateRoomCode();
+      document.getElementById('currentRoomCode').textContent = roomCode;
+      document.getElementById('roomCodeDisplay').classList.remove('hidden');
+      document.getElementById('networkStatusBadge').textContent = `Hosting (${roomCode})`;
+      document.getElementById('networkStatusBadge').className = 'text-[10px] bg-purple-200 text-purple-900 font-mono font-bold px-2 py-0.5 rounded-full';
+
+      const roomPeer = new Peer(`doodle-tag-${roomCode}`);
+      roomPeer.on('open', () => {});
+      roomPeer.on('connection', (conn) => peer.emit('connection', conn));
+    });
+
+    document.getElementById('joinRoomBtn').addEventListener('click', () => {
+      const code = document.getElementById('joinRoomCodeInput').value.trim().toUpperCase();
+      if (!code || code.length < 4) return;
+      initPeerNet();
+      isHost = false;
+      
+      const hostPeerId = `doodle-tag-${code}`;
+      hostConn = peer.connect(hostPeerId);
+
+      hostConn.on('open', () => {
+        document.getElementById('networkStatusBadge').textContent = `Connected (${code})`;
+        document.getElementById('networkStatusBadge').className = 'text-[10px] bg-sky-200 text-sky-900 font-mono font-bold px-2 py-0.5 rounded-full';
+      });
+
+      hostConn.on('data', (data) => {
+        handleIncomingNetData(data, hostConn);
+      });
+
+      hostConn.on('close', () => {
+        document.getElementById('networkStatusBadge').textContent = 'Disconnected';
+      });
+    });
+
+    function broadcastRoomState() {
+      if (!isHost) return;
+      const payload = {
+        type: 'ROOM_STATE',
+        p1Type: document.getElementById('p1Type').value,
+        p2Type: document.getElementById('p2Type').value,
+        p3Type: document.getElementById('p3Type').value,
+        p4Type: document.getElementById('p4Type').value,
+        selectedMap: selectedMap,
+        matchTime: document.getElementById('matchTimeSelect').value
+      };
+      connections.forEach(c => c.send(payload));
+    }
+
+    function broadcastGameState() {
+      if (!isHost || !gameActive) return;
+      const state = {
+        type: 'GAME_SYNC',
+        matchTime: matchTime,
+        players: players.map(p => ({
+          label: p.label,
+          x: p.x,
+          y: p.y,
+          vx: p.vx,
+          vy: p.vy,
+          isIT: p.isIT,
+          itTime: p.itTime,
+          facing: p.facing,
+          speedTimer: p.speedTimer,
+          shieldTimer: p.shieldTimer
+        }))
+      };
+      connections.forEach(c => c.send(state));
+    }
+
+    function handleIncomingNetData(data, conn) {
+      if (data.type === 'WELCOME') {
+        myNetSlot = data.assignedSlot;
+        selectedMap = data.selectedMap;
+      } else if (data.type === 'ROOM_STATE') {
+        document.getElementById('p1Type').value = data.p1Type;
+        document.getElementById('p2Type').value = data.p2Type;
+        document.getElementById('p3Type').value = data.p3Type;
+        document.getElementById('p4Type').value = data.p4Type;
+        selectedMap = data.selectedMap;
+      } else if (data.type === 'INPUT') {
+        const player = players.find(p => p.label.toLowerCase() === data.slot);
+        if (player) {
+          player.vx = data.vx;
+          player.vy = data.vy;
+          player.facing = data.facing;
+          if (data.jumped) sound.playJump();
+          if (data.dashed) sound.playDash();
+        }
+      } else if (data.type === 'GAME_SYNC') {
+        matchTime = data.matchTime;
+        document.getElementById('timerDisplay').textContent = matchTime;
+        data.players.forEach(sp => {
+          const p = players.find(pl => pl.label === sp.label);
+          if (p) {
+            p.x = sp.x;
+            p.y = sp.y;
+            p.vx = sp.vx;
+            p.vy = sp.vy;
+            p.isIT = sp.isIT;
+            p.itTime = sp.itTime;
+            p.facing = sp.facing;
+            p.speedTimer = sp.speedTimer;
+            p.shieldTimer = sp.shieldTimer;
+          }
+        });
+      }
+    }
+
+    // Input Trackers
+    const keys = {};
+    window.addEventListener('keydown', (e) => {
+      sound.init();
+      keys[e.code] = true;
+      if (e.code === 'KeyP') togglePause();
+    });
+    window.addEventListener('keyup', (e) => {
+      keys[e.code] = false;
+    });
+
+    function createDust(x, y) {
+      for (let i = 0; i < 6; i++) {
+        particles.push({
+          x: x,
+          y: y,
+          vx: (Math.random() - 0.5) * 4,
+          vy: (Math.random() - 0.5) * 4,
+          life: 20,
+          color: '#94a3b8'
+        });
+      }
+    }
+
+    function loadMap(mapName) {
+      platforms = [];
+      bouncePads = [];
+      portals = [];
+      powerups = [];
+
+      if (mapName === 'classic') {
+        platforms = [
+          { x: 150, y: 380, w: 200, h: 18 },
+          { x: 550, y: 380, w: 200, h: 18 },
+          { x: 350, y: 260, w: 200, h: 18 },
+          { x: 200, y: 150, w: 160, h: 18 },
+          { x: 540, y: 150, w: 160, h: 18 }
+        ];
+        powerups.push({ x: 450, y: 220, r: 12, type: 'speed', pulse: 0 });
+      } else if (mapName === 'bouncy') {
+        platforms = [
+          { x: 100, y: 360, w: 160, h: 18 },
+          { x: 640, y: 360, w: 160, h: 18 },
+          { x: 320, y: 240, w: 260, h: 18 }
+        ];
+        bouncePads = [
+          { x: 50, y: 470, w: 60, h: 14 },
+          { x: 790, y: 470, w: 60, h: 14 },
+          { x: 420, y: 226, w: 60, h: 14 }
+        ];
+      } else if (mapName === 'portals') {
+        platforms = [
+          { x: 120, y: 350, w: 180, h: 18 },
+          { x: 600, y: 350, w: 180, h: 18 },
+          { x: 360, y: 220, w: 180, h: 18 }
+        ];
+        portals = [
+          { x: 80, y: 330, r: 16, targetX: 780, targetY: 330 },
+          { x: 820, y: 330, r: 16, targetX: 120, targetY: 330 }
+        ];
+      } else if (mapName === 'castle') {
+        platforms = [
+          { x: 60, y: 320, w: 180, h: 20 },
+          { x: 660, y: 320, w: 180, h: 20 },
+          { x: 100, y: 190, w: 140, h: 18 },
+          { x: 660, y: 190, w: 140, h: 18 },
+          { x: 350, y: 280, w: 200, h: 18 }
+        ];
+        bouncePads = [{ x: 420, y: 470, w: 60, h: 14 }];
+      } else if (mapName === 'lava') {
+        platforms = [
+          { x: 100, y: 380, w: 140, h: 18 },
+          { x: 380, y: 320, w: 140, h: 18 },
+          { x: 660, y: 380, w: 140, h: 18 },
+          { x: 240, y: 200, w: 140, h: 18 },
+          { x: 520, y: 200, w: 140, h: 18 }
+        ];
+      } else if (mapName === 'islands') {
+        platforms = [
+          { x: 80, y: 360, w: 120, h: 18 },
+          { x: 280, y: 280, w: 120, h: 18 },
+          { x: 500, y: 280, w: 120, h: 18 },
+          { x: 700, y: 360, w: 120, h: 18 },
+          { x: 390, y: 150, w: 120, h: 18 }
+        ];
+        bouncePads = [{ x: 420, y: 266, w: 40, h: 14 }];
+      }
+    }
+
+    function initGame() {
+      loadMap(selectedMap);
+      players = [];
+
+      const p1Type = document.getElementById('p1Type').value;
+      const p2Type = document.getElementById('p2Type').value;
+      const p3Type = document.getElementById('p3Type').value;
+      const p4Type = document.getElementById('p4Type').value;
+
+      if (p1Type !== 'none') players.push(new DoodlePlayer(1, 'P1', '#f43f5e', p1Type, 100, 100));
+      if (p2Type !== 'none') players.push(new DoodlePlayer(2, 'P2', '#0284c7', p2Type, 750, 100));
+      if (p3Type !== 'none') players.push(new DoodlePlayer(3, 'P3', '#10b981', p3Type, 250, 100));
+      if (p4Type !== 'none') players.push(new DoodlePlayer(4, 'P4', '#f59e0b', p4Type, 600, 100));
+
+      if (players.length > 0) {
+        players[Math.floor(Math.random() * players.length)].isIT = true;
+      }
+
+      // Hide non-active scorecards
+      ['p1', 'p2', 'p3', 'p4'].forEach((pSlot, idx) => {
+        const card = document.getElementById(`${pSlot}Card`);
+        if (card) {
+          if (idx < players.length) card.classList.remove('hidden');
+          else card.classList.add('hidden');
+        }
+      });
+
+      matchTime = parseInt(document.getElementById('matchTimeSelect').value, 10) || 60;
+      document.getElementById('timerDisplay').textContent = matchTime;
+
+      if (matchTimerInterval) clearInterval(matchTimerInterval);
+      matchTimerInterval = setInterval(() => {
+        if (gameActive && !isPaused) {
+          matchTime--;
+          document.getElementById('timerDisplay').textContent = matchTime;
+          if (matchTime <= 0) endGame();
+        }
+      }, 1000);
+
+      menuOverlay.classList.add('hidden');
+      mapSelectModal.classList.add('hidden');
+      gameOverModal.classList.add('hidden');
+      gameActive = true;
+      isPaused = false;
+    }
+
+    function endGame() {
+      gameActive = false;
+      if (matchTimerInterval) clearInterval(matchTimerInterval);
+
+      sound.playWin();
+
+      // Determine Winner (Lowest IT time)
+      let winner = players[0];
+      players.forEach(p => {
+        if (p.itTime < winner.itTime) winner = p;
+      });
+
+      document.getElementById('winnerText').textContent = `🎉 ${winner.label} Wins! 🎉`;
+
+      const statsBox = document.getElementById('finalStats');
+      statsBox.innerHTML = players.map(p => `
+        <div class="flex justify-between items-center border-b border-amber-200 py-1">
+          <span class="font-bold" style="color:${p.color}">${p.label}:</span>
+          <span>Total IT Time: <b>${p.itTime.toFixed(1)}s</b></span>
+        </div>
+      `).join('');
+
+      gameOverModal.classList.remove('hidden');
+    }
+
+    function togglePause() {
+      if (!gameActive) return;
+      isPaused = !isPaused;
+      if (isPaused) pauseOverlay.classList.remove('hidden');
+      else pauseOverlay.classList.add('hidden');
+    }
+
+    // --- GAME LOOP & UPDATING ---
+    function update() {
+      if (!gameActive || isPaused) return;
+
+      if (tagCooldown > 0) tagCooldown--;
+
+      // Update Players
+      players.forEach(p => p.update());
+
+      // Send local input state if connected as online client
+      if (!isHost && hostConn && hostConn.open) {
+        const myPlayer = players.find(p => p.label.toLowerCase() === myNetSlot);
+        if (myPlayer) {
+          hostConn.send({
+            type: 'INPUT',
+            slot: myNetSlot,
+            vx: myPlayer.vx,
+            vy: myPlayer.vy,
+            facing: myPlayer.facing
+          });
+        }
+      }
+
+      // Host broadcasts full synchronized state to room
+      if (isHost && gameActive) {
+        broadcastGameState();
+      }
+
+      // Bounce Pads Interaction
+      players.forEach(p => {
+        bouncePads.forEach(bp => {
+          if (
+            p.x + p.width > bp.x &&
+            p.x < bp.x + bp.w &&
+            p.y + p.height >= bp.y &&
+            p.y + p.height - p.vy <= bp.y + 12 &&
+            p.vy >= 0
+          ) {
+            p.vy = -15;
+            sound.playBounce();
+            createDust(bp.x + bp.w / 2, bp.y);
+          }
+        });
+      });
+
+      // Portal Interaction
+      players.forEach(p => {
+        if (p.portalCooldown <= 0) {
+          portals.forEach(pt => {
+            const dx = (p.x + p.width / 2) - pt.x;
+            const dy = (p.y + p.height / 2) - pt.y;
+            if (Math.hypot(dx, dy) < pt.r + p.width / 2) {
+              p.x = pt.targetX - p.width / 2;
+              p.y = pt.targetY - p.height / 2;
+              p.portalCooldown = 45;
+              sound.playPowerup();
+              createDust(pt.x, pt.y);
+              createDust(pt.targetX, pt.targetY);
+            }
+          });
+        }
+      });
+
+      // Powerups Collection
+      for (let i = powerups.length - 1; i >= 0; i--) {
+        const pw = powerups[i];
+        pw.pulse += 0.08;
+        players.forEach(p => {
+          const dx = (p.x + p.width / 2) - pw.x;
+          const dy = (p.y + p.height / 2) - pw.y;
+          if (Math.hypot(dx, dy) < pw.r + p.width / 2) {
+            if (pw.type === 'speed') p.speedTimer = 240;
+            if (pw.type === 'shield') p.shieldTimer = 240;
+            sound.playPowerup();
+            createDust(pw.x, pw.y);
+            powerups.splice(i, 1);
+          }
+        });
+      }
+
+      // Tagging Logic between Players
+      if (tagCooldown <= 0) {
+        const itPlayer = players.find(p => p.isIT);
+        if (itPlayer) {
+          players.forEach(p => {
+            if (p !== itPlayer && p.shieldTimer <= 0) {
+              if (
+                itPlayer.x < p.x + p.width &&
+                itPlayer.x + itPlayer.width > p.x &&
+                itPlayer.y < p.y + p.height &&
+                itPlayer.y + itPlayer.height > p.y
+              ) {
+                itPlayer.isIT = false;
+                p.isIT = true;
+                tagCooldown = 45;
+                sound.playTag();
+                createDust(p.x + p.width / 2, p.y + p.height / 2);
+              }
+            }
+          });
+        }
+      }
+
+      // Particles Update
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const pt = particles[i];
+        pt.x += pt.vx;
+        pt.y += pt.vy;
+        pt.life--;
+        if (pt.life <= 0) particles.splice(i, 1);
+      }
+
+      // Update Scorecards in HUD
+      players.forEach(p => {
+        const statusEl = document.getElementById(`${p.label.toLowerCase()}Status`);
+        if (statusEl) {
+          statusEl.textContent = `${p.itTime.toFixed(1)}s ${p.isIT ? '👑' : ''}`;
+          statusEl.className = `text-[11px] font-mono font-bold ${p.isIT ? 'text-red-600 animate-pulse' : 'text-slate-600'}`;
+        }
+      });
+    }
+
+    // --- RENDER GAME CANVAS ---
+    function render() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Render Platforms
+      platforms.forEach(p => {
+        ctx.fillStyle = '#334155';
+        ctx.fillRect(p.x, p.y, p.w, p.h);
+        ctx.strokeStyle = '#1e293b';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(p.x, p.y, p.w, p.h);
+      });
+
+      // Render Bounce Pads
+      bouncePads.forEach(bp => {
+        ctx.fillStyle = '#f59e0b';
+        ctx.fillRect(bp.x, bp.y, bp.w, bp.h);
+        ctx.strokeStyle = '#d97706';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(bp.x, bp.y, bp.w, bp.h);
+      });
+
+      // Render Portals
+      portals.forEach(pt => {
+        ctx.save();
+        ctx.strokeStyle = '#a855f7';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, pt.r + Math.sin(Date.now() * 0.01) * 2, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      });
+
+      // Render Powerups
+      powerups.forEach(pw => {
+        ctx.save();
+        ctx.fillStyle = pw.type === 'speed' ? '#eab308' : '#3b82f6';
+        ctx.beginPath();
+        ctx.arc(pw.x, pw.y, pw.r + Math.sin(pw.pulse) * 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.font = '12px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(pw.type === 'speed' ? '⚡' : '🛡️', pw.x, pw.y);
+        ctx.restore();
+      });
+
+      // Render Particles
+      particles.forEach(pt => {
+        ctx.fillStyle = pt.color;
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, pt.life / 4, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // Render Players
+      players.forEach(p => p.draw());
+    }
+
+    function gameLoop() {
+      update();
+      render();
+      requestAnimationFrame(gameLoop);
+    }
+
+    // --- DRAWING STUDIO MODAL LOGIC ---
+    let currentEditingSlot = 'p1';
+    const studioCanvas = document.getElementById('studioCanvas');
+    const studioCtx = studioCanvas.getContext('2d');
+    let isDrawing = false;
+    let currentColor = '#1e293b';
+    let currentLineWidth = 4;
+
+    function openStudio(slot) {
+      currentEditingSlot = slot;
+      document.getElementById('drawStudioTitle').textContent = `✏️ Draw Your Doodle: ${slot.toUpperCase()}`;
+      document.getElementById('drawStudioModal').classList.remove('hidden');
+      clearStudio();
+    }
+
+    function clearStudio() {
+      studioCtx.clearRect(0, 0, studioCanvas.width, studioCanvas.height);
+    }
+
+    studioCanvas.addEventListener('mousedown', (e) => {
+      isDrawing = true;
+      studioCtx.beginPath();
+      studioCtx.moveTo(e.offsetX, e.offsetY);
+    });
+    studioCanvas.addEventListener('mousemove', (e) => {
+      if (!isDrawing) return;
+      studioCtx.strokeStyle = currentColor === 'eraser' ? '#ffffff' : currentColor;
+      studioCtx.lineWidth = currentLineWidth;
+      studioCtx.lineCap = 'round';
+      studioCtx.lineTo(e.offsetX, e.offsetY);
+      studioCtx.stroke();
+    });
+    window.addEventListener('mouseup', () => { isDrawing = false; });
+
+    document.querySelectorAll('.color-swatch').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        currentColor = e.currentTarget.dataset.color;
+      });
+    });
+
+    document.getElementById('sizeThinBtn').addEventListener('click', () => currentLineWidth = 2);
+    document.getElementById('sizeMidBtn').addEventListener('click', () => currentLineWidth = 4);
+    document.getElementById('sizeThickBtn').addEventListener('click', () => currentLineWidth = 8);
+    document.getElementById('clearStudioBtn').addEventListener('click', clearStudio);
+
+    document.getElementById('resetStudioBtn').addEventListener('click', () => {
+      customSkins[currentEditingSlot] = null;
+      document.getElementById('drawStudioModal').classList.add('hidden');
+    });
+
+    document.getElementById('saveStudioBtn').addEventListener('click', () => {
+      const img = new Image();
+      img.src = studioCanvas.toDataURL();
+      img.onload = () => {
+        customSkins[currentEditingSlot] = img;
+        document.getElementById('drawStudioModal').classList.add('hidden');
+      };
+    });
+
+    document.getElementById('closeDrawStudioBtn').addEventListener('click', () => {
+      document.getElementById('drawStudioModal').classList.add('hidden');
+    });
+
+    // --- BUTTON BINDINGS & MAP PREVIEWS ---
+    document.getElementById('drawP1Btn').addEventListener('click', () => openStudio('p1'));
+    document.getElementById('drawP2Btn').addEventListener('click', () => openStudio('p2'));
+    document.getElementById('drawP3Btn').addEventListener('click', () => openStudio('p3'));
+    document.getElementById('drawP4Btn').addEventListener('click', () => openStudio('p4'));
+
+    document.getElementById('resetP1Btn').addEventListener('click', () => customSkins.p1 = null);
+    document.getElementById('resetP2Btn').addEventListener('click', () => customSkins.p2 = null);
+    document.getElementById('resetP3Btn').addEventListener('click', () => customSkins.p3 = null);
+    document.getElementById('resetP4Btn').addEventListener('click', () => customSkins.p4 = null);
+
+    const mapSelectModal = document.getElementById('mapSelectModal');
+    document.getElementById('openMapSelectBtn').addEventListener('click', () => {
+      mapSelectModal.classList.remove('hidden');
+      renderMapPreviews();
+    });
+    document.getElementById('cancelMapSelectBtn').addEventListener('click', () => {
+      mapSelectModal.classList.add('hidden');
+    });
+
+    document.querySelectorAll('.map-card').forEach(card => {
+      card.addEventListener('click', () => {
+        const mapKey = card.dataset.map;
+        selectedMap = mapKey;
+        initGame();
+      });
+    });
+
+    document.getElementById('soundToggleBtn').addEventListener('click', () => {
+      sound.enabled = !sound.enabled;
+      soundIcon.textContent = sound.enabled ? '🔊' : '🔇';
+      soundText.textContent = sound.enabled ? 'Sound ON' : 'Sound OFF';
+    });
+
+    document.getElementById('controlsBtn').addEventListener('click', () => helpModal.classList.remove('hidden'));
+    document.getElementById('pauseControlsBtn').addEventListener('click', () => helpModal.classList.remove('hidden'));
+    document.getElementById('closeHelpBtn').addEventListener('click', () => helpModal.classList.add('hidden'));
+
+    document.getElementById('resumeBtn').addEventListener('click', togglePause);
+    document.getElementById('rematchBtn').addEventListener('click', initGame);
+    document.getElementById('backMenuBtn').addEventListener('click', () => {
+      gameOverModal.classList.add('hidden');
+      menuOverlay.classList.remove('hidden');
+    });
+
+    function renderMapPreviews() {
+      const maps = ['classic', 'bouncy', 'portals', 'castle', 'lava', 'islands'];
+      maps.forEach(m => {
+        const prevCanvas = document.getElementById(`preview-${m}`);
+        if (!prevCanvas) return;
+        const pctx = prevCanvas.getContext('2d');
+        pctx.clearRect(0, 0, prevCanvas.width, prevCanvas.height);
+        
+        loadMap(m);
+        const scaleX = prevCanvas.width / canvas.width;
+        const scaleY = prevCanvas.height / canvas.height;
+
+        platforms.forEach(p => {
+          pctx.fillStyle = '#334155';
+          pctx.fillRect(p.x * scaleX, p.y * scaleY, p.w * scaleX, p.h * scaleY);
+        });
+        bouncePads.forEach(bp => {
+          pctx.fillStyle = '#f59e0b';
+          pctx.fillRect(bp.x * scaleX, bp.y * scaleY, bp.w * scaleX, bp.h * scaleY);
+        });
+        portals.forEach(pt => {
+          pctx.fillStyle = '#a855f7';
+          pctx.beginPath();
+          pctx.arc(pt.x * scaleX, pt.y * scaleY, pt.r * scaleX, 0, Math.PI * 2);
+          pctx.fill();
+        });
+      });
+    }
+
+    loadMap('classic');
+    requestAnimationFrame(gameLoop);
+  </script>
+</body>
+</html>
